@@ -8,24 +8,27 @@
 ;; Generic INode protocol
 
 (defprotocol INode
-  (render-node [this context-map] "Renders the context"))
+  (render-node [this preceding-text context-map] "Renders the context"))
 
 ;; Implements fn handler for the context map. fn handlers can
 ;; access any data in the context map.
 
 (deftype FunctionNode [handler]
   INode
-  (render-node [this context-map]
-    (handler context-map))
+  (render-node [_this preceding-text context-map]
+    (handler
+      (assoc context-map
+        :selmer/preceding-text
+        preceding-text)))
   clojure.lang.IMeta
-  (meta [this]
+  (meta [_this]
     (meta handler)))
 
 ;; Implements dumb text content injection at runtime.
 
 (deftype TextNode [text]
   INode
-  (render-node [this context-map]
+  (render-node [_this _preceding-text _context-map]
     (str text))
   (toString [_]
     (str text)))

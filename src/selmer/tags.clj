@@ -516,15 +516,15 @@
 ;;helpers for custom tag definition
 (defn render-tags [context-map tags]
   (into {}
-        (for [[tag content] tags]
-          [tag
-           (update-in content [:content]
-                      (fn [^selmer.node.INode node]
-                        (clojure.string/join (map #(.render-node ^selmer.node.INode % context-map) node))))])))
+    (for [[tag content] tags]
+      [tag
+       (update-in content [:content]
+         (fn [^selmer.node.INode node]
+           (clojure.string/join (map #(.render-node ^selmer.node.INode % "" context-map) node))))])))
 
 (defn tag-handler [handler & tags]
   (fn [args tag-content render rdr]
-    (if-let [content (if (> (count tags) 1) (apply (partial tag-content rdr) tags))]
+    (if-let [content (when (> (count tags) 1) (apply (partial tag-content rdr) tags))]
       (fn [context-map]
         (render
           [(->> content (render-tags context-map) (handler args context-map) (TextNode.))]

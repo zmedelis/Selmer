@@ -16,8 +16,7 @@
     [selmer.tags :refer :all]
     [selmer.util :refer :all]
     [selmer.validator :refer [validation-error]]
-    selmer.node
-    )
+    selmer.node)
   (:import [selmer.node TextNode FunctionNode]))
 
 ;; Ahead decl because some fns call into each other.
@@ -105,7 +104,7 @@
   [template context-map]
   (let [buf (StringBuilder.)]
     (doseq [^selmer.node.INode element template]
-      (if-let [value (.render-node element context-map)]
+      (if-let [value (.render-node element (str buf) context-map)]
         (.append buf value)
         (.append buf (*missing-value-formatter* (:tag (meta element)) context-map))))
     (.toString buf)))
