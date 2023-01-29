@@ -21,5 +21,4 @@
 
 (t/deftest refer-generated-context-vars
   (t/is (= "A[A][A]"
-          (parser/render "{{a}}{% pretext selmer.name:X %}{{X}}" {:a "A"})
-          )))
+          (parser/render "{{a}}{% pretext selmer.name:X %}{{X}}" {:a "A"}))))
