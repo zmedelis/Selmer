@@ -12,9 +12,14 @@
           (parser/render "{{a}}{% pretext %}B{% pretext %}C" {:a "A"}))))
 
 (t/deftest context-values
-  (t/is (= {:a "A" :pretext "[A]"}
+  (t/is (= {}
           (second (parser/render-with-values
                     "{{a}}{% pretext %}" {:a "A"}))))
-  (t/is (= {:a "A" :TheName "[A]"}
+  (t/is (= {:TheName "[A]"}
           (second (parser/render-with-values
                     "{{a}}{% pretext selmer.name:TheName%}" {:a "A"})))))
+
+(t/deftest refer-generated-context-vars
+  (t/is (= "A[A][A]"
+          (parser/render "{{a}}{% pretext selmer.name:X %}{{X}}" {:a "A"})
+          )))

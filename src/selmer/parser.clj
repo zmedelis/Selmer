@@ -96,27 +96,15 @@
   (swap! expr-tags dissoc k)
   (swap! closing-tags dissoc k))
 
-(defn- element-name
-  "When building a map of values that were inserted into template a name
-  of the insertion needs to be figured out.
-  For `filter` type of elements it is whatever var name is used, as in `{{x}} -> :x`,
-  there is a complication when {{x}} is used multiple times in the template.
-
-  E.g. '{{x}} something {{x|currency}}' - in that case `x` will end up once in the
-  resulting map. Needs fixing.
-
-  For `expr` tags it is either the name of the tag, or, if `selmer.name` arg is
-  provided then it is that name. This addresses the above issue for expressions."
+(defn- element-selmer-name
+  "Find and extract `selmer.name` if tag uses it. "
   [element]
-  (when-let [tag (-> element meta :tag)]
-    (let [selmer-name (some (fn [arg]
-                              (when (string/starts-with? arg "selmer.name")
-                                (second (string/split arg #":"))))
-                        (:args tag))]
-      (keyword
-        (condp = (:tag-type tag)
-          :filter (:tag-value tag)
-          :expr   (or selmer-name (:tag-name tag)))))))
+  (when-let [selmer-name
+             (some (fn [arg]
+                     (when (string/starts-with? arg "selmer.name")
+                       (second (string/split arg #":"))))
+               (-> element meta :tag :args))]
+    (keyword selmer-name)))
 
 ;; render-template renders at runtime, accepts
 ;; post-parsing vectors of INode elements.
@@ -129,18 +117,36 @@
 
   When insertions are simple `context-map` values having this is not necessary,
   but when template slots are being filled in by external generators (AI) then
-  this is useful."
+  this is useful. It allows using generated values further down the template:
+
+  ```
+  Hi {{name}},
+
+  This is about {% generator selmer.name:content}
+
+  Let's repeat {{content}}
+  ```"
   [template context-map]
-  (let [buf          (StringBuilder.)
-        context-vals (transient {})]
-    (doseq [^selmer.node.INode element template]
-      (if-let [value (.render-node element (str buf) context-map)]
-        (do
-            (when-let [el-name (element-name element)]
-              (assoc! context-vals el-name value))
-            (.append buf value))
-        (.append buf (*missing-value-formatter* (:tag (meta element)) context-map))))
-    [(.toString buf) (persistent! context-vals)]))
+  ;; change original Selmer `doseq` based implementation to loop/recur
+  (loop [[^selmer.node.INode element & elements] template
+         buf                                     (StringBuilder.)
+         context-vals                            {}]
+    (if (nil? element)
+      [(.toString buf) context-vals]
+      (let [value (.render-node element (str buf)
+                    ;; merge in inserted values that had `selmer.name` in tag
+                    (merge
+                      context-map
+                      context-vals))
+            el-name (element-selmer-name element)]
+        (recur
+          elements
+          (if value
+            (.append buf value)
+            (.append buf (*missing-value-formatter* (:tag (meta element)) context-map)))
+          (if (and value el-name)
+            (assoc context-vals el-name value)
+            context-vals))))))
 
 (defn render-with-values
   " render takes the string, the context-map and possibly also opts.
