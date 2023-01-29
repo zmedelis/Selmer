@@ -12,12 +12,13 @@
           (parser/render "{{a}}{% pretext %}B{% pretext %}C" {:a "A"}))))
 
 (t/deftest context-values
-  (t/is (= {}
+  (t/is (= {:pretext "[A]"}
           (second (parser/render-with-values
                     "{{a}}{% pretext %}" {:a "A"}))))
-  (t/is (= {:TheName "[A]"}
+  (t/is (= {:TheName "[A]"
+            :pretext "[A[A] ]"}
           (second (parser/render-with-values
-                    "{{a}}{% pretext var-name=TheName%}" {:a "A"})))))
+                    "{{a}}{% pretext var-name=TheName%} {% pretext %}" {:a "A"})))))
 
 (t/deftest refer-generated-context-vars
   (t/is (= "A[A][A]"

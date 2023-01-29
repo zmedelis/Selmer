@@ -102,12 +102,16 @@
   code to detect `known-variables` in the template. If `var.name:value`
   is used as the format then it messes with var detection."
   [element]
-  (when-let [var-name
-             (some (fn [arg]
-                     (when (string/starts-with? arg "var-name=")
-                       (second (string/split arg #"="))))
-               (-> element meta :tag :args))]
-    (keyword var-name)))
+  (if-let [var-name
+           (some (fn [arg]
+                   (when (string/starts-with? arg "var-name=")
+                     (second (string/split arg #"="))))
+             (-> element meta :tag :args))]
+    (keyword var-name)
+    ;; if `var-name` is not specified then use `tag-name`
+    ;; this will cause issues if more than one of the same type is
+    ;; used then it will override, adding index would be a solution
+    (-> element meta :tag :tag-name)))
 
 ;; render-template renders at runtime, accepts
 ;; post-parsing vectors of INode elements.
