@@ -97,12 +97,15 @@
   (swap! closing-tags dissoc k))
 
 (defn- element-selmer-name
-  "Find and extract `selmer.name` if tag uses it. "
+  "Find and extract `selmer-name` if tag uses it.
+  The `selmer-name=value` syntax is used because of existing Selmer
+  code to detect `known-variables` in the template. If `selmer.name:value`
+  is used as the format then it messes with var detection."
   [element]
   (when-let [selmer-name
              (some (fn [arg]
-                     (when (string/starts-with? arg "selmer.name")
-                       (second (string/split arg #":"))))
+                     (when (string/starts-with? arg "selmer-name=")
+                       (second (string/split arg #"="))))
                (-> element meta :tag :args))]
     (keyword selmer-name)))
 
@@ -122,7 +125,7 @@
   ```
   Hi {{name}},
 
-  This is about {% generator selmer.name:content}
+  This is about {% generator selmer-name=content}
 
   Let's repeat {{content}}
   ```"

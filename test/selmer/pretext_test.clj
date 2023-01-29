@@ -17,8 +17,8 @@
                     "{{a}}{% pretext %}" {:a "A"}))))
   (t/is (= {:TheName "[A]"}
           (second (parser/render-with-values
-                    "{{a}}{% pretext selmer.name:TheName%}" {:a "A"})))))
+                    "{{a}}{% pretext selmer-name=TheName%}" {:a "A"})))))
 
 (t/deftest refer-generated-context-vars
   (t/is (= "A[A][A]"
-          (parser/render "{{a}}{% pretext selmer.name:X %}{{X}}" {:a "A"}))))
+          (parser/render "{{a}}{% pretext selmer-name=X %}{{X}}" {:a "A"}))))
