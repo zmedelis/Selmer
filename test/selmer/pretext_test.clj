@@ -9,4 +9,12 @@
 
 (t/deftest buffer-accumulation
   (t/is (= "A[A]B[A[A]B]C"
-          (parser/render "{{A}}{% pretext %}B{% pretext %}C" {:A "A"}))))
+          (parser/render "{{a}}{% pretext %}B{% pretext %}C" {:a "A"}))))
+
+(t/deftest context-values
+  (t/is (= {:a "A" :pretext "[A]"}
+          (second (parser/render-with-values
+                    "{{a}}{% pretext %}" {:a "A"}))))
+  (t/is (= {:a "A" :TheName "[A]"}
+          (second (parser/render-with-values
+                    "{{a}}{% pretext selmer.name:TheName%}" {:a "A"})))))

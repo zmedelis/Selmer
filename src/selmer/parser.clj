@@ -96,23 +96,65 @@
   (swap! expr-tags dissoc k)
   (swap! closing-tags dissoc k))
 
+(defn- element-name
+  "When building a map of values that were inserted into template a name
+  of the insertion needs to be figured out.
+  For `filter` type of elements it is whatever var name is used, as in `{{x}} -> :x`,
+  there is a complication when {{x}} is used multiple times in the template.
+
+  E.g. '{{x}} something {{x|currency}}' - in that case `x` will end up once in the
+  resulting map. Needs fixing.
+
+  For `expr` tags it is either the name of the tag, or, if `selmer.name` arg is
+  provided then it is that name. This addresses the above issue for expressions."
+  [element]
+  (when-let [tag (-> element meta :tag)]
+    (let [selmer-name (some (fn [arg]
+                              (when (string/starts-with? arg "selmer.name")
+                                (second (string/split arg #":"))))
+                        (:args tag))]
+      (keyword
+        (condp = (:tag-type tag)
+          :filter (:tag-value tag)
+          :expr   (or selmer-name (:tag-name tag)))))))
+
 ;; render-template renders at runtime, accepts
 ;; post-parsing vectors of INode elements.
 
-(defn render-template
-  " vector of ^selmer.node.INodes and a context map."
+(defn render-template-with-values
+  " vector of ^selmer.node.INodes and a context map.
+
+  `with-values` version is here not to break Selmer API and enable cases
+  when Selmer client needs to get values that were inserted into the template.
+
+  When insertions are simple `context-map` values having this is not necessary,
+  but when template slots are being filled in by external generators (AI) then
+  this is useful."
   [template context-map]
-  (let [buf (StringBuilder.)]
+  (let [buf          (StringBuilder.)
+        context-vals (transient {})]
     (doseq [^selmer.node.INode element template]
       (if-let [value (.render-node element (str buf) context-map)]
-        (.append buf value)
+        (do
+            (when-let [el-name (element-name element)]
+              (assoc! context-vals el-name value))
+            (.append buf value))
         (.append buf (*missing-value-formatter* (:tag (meta element)) context-map))))
-    (.toString buf)))
+    [(.toString buf) (persistent! context-vals)]))
 
-(defn render
-  " render takes the string, the context-map and possibly also opts. "
+(defn render-with-values
+  " render takes the string, the context-map and possibly also opts.
+
+  See `render-templte-with-values`"
   [s context-map & [opts]]
-  (render-template (parse parse-input (java.io.StringReader. s) opts) context-map))
+  (render-template-with-values (parse parse-input (java.io.StringReader. s) opts) context-map))
+
+(defn render-template [template context-map]
+  (first (render-template-with-values template context-map)))
+
+(defn render [s context-map & [opts]]
+  (first (render-with-values s context-map opts)))
+
 
 
 ;; Primary fn you interact with as a user, you pass a path that
