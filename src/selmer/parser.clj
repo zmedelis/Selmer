@@ -96,18 +96,18 @@
   (swap! expr-tags dissoc k)
   (swap! closing-tags dissoc k))
 
-(defn- element-selmer-name
-  "Find and extract `selmer-name` if tag uses it.
-  The `selmer-name=value` syntax is used because of existing Selmer
-  code to detect `known-variables` in the template. If `selmer.name:value`
+(defn- element-var-name
+  "Find and extract `var-name` if tag uses it.
+  The `var-name=value` syntax is used because of existing Selmer
+  code to detect `known-variables` in the template. If `var.name:value`
   is used as the format then it messes with var detection."
   [element]
-  (when-let [selmer-name
+  (when-let [var-name
              (some (fn [arg]
-                     (when (string/starts-with? arg "selmer-name=")
+                     (when (string/starts-with? arg "var-name=")
                        (second (string/split arg #"="))))
                (-> element meta :tag :args))]
-    (keyword selmer-name)))
+    (keyword var-name)))
 
 ;; render-template renders at runtime, accepts
 ;; post-parsing vectors of INode elements.
@@ -125,7 +125,7 @@
   ```
   Hi {{name}},
 
-  This is about {% generator selmer-name=content}
+  This is about {% generator var-name=content}
 
   Let's repeat {{content}}
   ```"
@@ -141,7 +141,7 @@
                     (merge
                       context-map
                       context-vals))
-            el-name (element-selmer-name element)]
+            el-name (element-var-name element)]
         (recur
           elements
           (if value
