@@ -1,43 +1,60 @@
 (ns build
-  "Basic build script for Selmer.
+  (:require
+   [clojure.edn :as edn]
+   [clojure.tools.build.api :as b]))
 
-  Automatically compiles selmer.node when running tests:
+(def project (-> (edn/read-string (slurp "deps.edn"))
+                 :aliases :neil :project))
+(def lib (or (:name project) 'my/lib1))
 
-  clojure -T:build test
 
-  This will exclude the :benchmark tests by default.
-  You can specify :select :benchmark to run just the
-  benchmark tests, or :select :all to run all the tests."
-  (:refer-clojure :exclude [test])
-  (:require [clojure.tools.build.api :as b]
-            [org.corfield.build :as bb]))
+(def version (or (:version project)
+                 "1.2.0"))
+(def class-dir "target/classes")
+(def basis (b/create-basis {:project "deps.edn"}))
+(def uber-file (format "target/%s-%s-standalone.jar" (name lib) version))
+(def jar-file (format "target/%s-%s.jar" (name lib) version))
 
-(defn prep
-  "Compile selmer.node to target/classes."
-  [_]
-  (b/compile-clj {:basis (bb/default-basis)
-                  :class-dir (bb/default-class-dir)
-                  :ns-compile ['selmer.node]}))
 
-(defn test
-  "Run the tests, ensuring that selmer.node is compiled first.
+(defn clean [_]
+  (b/delete {:path "target"}))
 
-  The :select option can be provided to determine which tests
-  to run, and can be :default, :benchmark, or :all. If omitted,
-  the :default selector is used, which means 'not :benchmark'.
+(defn jar [_]
+  (b/write-pom {:class-dir class-dir
+                :lib lib
+                :version version
+                :basis basis
+                :src-dirs ["src"]})
+  (b/copy-dir {:src-dirs ["src" "resources"]
+               :target-dir class-dir})
+  (b/jar {:class-dir class-dir
+          :jar-file jar-file}))
 
-  If :aliases is specified, those will be used in addition to
-  the :dev alias (which is always used)."
-  [opts]
-  ;; find ALL test namespaces under test, not just *-test ones:
-  ;; (because benchmarks are not in *-test namespace!)
-  (let [selector (case (:select opts :default)
-                   :default   {:main-opts ["-e" "benchmark" "-r" ".*"]}
-                   :benchmark {:main-opts ["-i" "benchmark" "-r" ".*"]}
-                   :all       {:main-opts ["-r" ".*"]})]
-    (prep {})
-    (bb/run-tests (-> opts
-                      (dissoc :select) ; remove our custom option
-                      (merge selector) ; add our main opts
-                      ;; ensure :dev alias is used!
-                      (update :aliases (fnil conj []) :dev)))))
+(defn install [_]
+  (jar {})
+  (b/install {:basis basis
+              :lib lib
+              :version version
+              :jar-file jar-file
+              :class-dir class-dir}))
+
+(defn uber [_]
+  (clean nil)
+  (b/copy-dir {:src-dirs ["src" "resources"]
+               :target-dir class-dir})
+  (b/compile-clj {:basis basis
+                  :src-dirs ["src"]
+                  :class-dir class-dir})
+  (b/uber {:class-dir class-dir
+           :uber-file uber-file
+           :basis basis}))
+
+(defn deploy [opts]
+  (jar opts)
+  ((requiring-resolve 'deps-deploy.deps-deploy/deploy)
+    (merge {:installer :remote
+                       :artifact jar-file
+                       :pom-file (b/pom-path {:lib lib :class-dir class-dir})}
+                    opts))
+  opts)
+
